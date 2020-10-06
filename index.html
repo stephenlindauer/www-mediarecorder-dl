@@ -1,24 +1,90 @@
 <html>
-
-<body>
+  <head>
+    <style>
+      .row {
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
     <h1>MediaRecorder downloader</h1>
-
-    <video id='preview' muted autoplay="autoplay"></video>
+    <div class="row">
+      Audio/Video picker here
+    </div>
+    <div class="row">
+      <button id="start-button" onclick="onStart()">Start Recording</button>
+      <button id="stop-button" onclick="onStop()" disabled>
+        Stop Recording
+      </button>
+      <button id="download-button" onclick="onDownload()" disabled>
+        Download
+      </button>
+    </div>
+    <video id="preview" muted autoplay="autoplay"></video>
 
     <script>
+      var _mediaStream;
+      var _mediaRecorder;
+      var _chunks = [];
 
-        navigator.mediaDevices.getUserMedia({
-            video:{
-                frameRate: 30,
-                width: 1280,
-                height: 720
-            },
-            audio: true
-        }).then(mediaStream => {
-         document.getElementById('preview').srcObject = mediaStream;
+      // grab camera/mic on page load
+      navigator.mediaDevices
+        .getUserMedia({
+          video: {
+            frameRate: 30,
+            width: 1280,
+            height: 720,
+          },
+          audio: true,
+        })
+        .then((mediaStream) => {
+          document.getElementById("preview").srcObject = mediaStream;
+          _mediaStream = mediaStream;
         });
 
-    </script>
+      function onStart() {
+        // toggle button states
+        document.getElementById("start-button").disabled = true;
+        document.getElementById("stop-button").disabled = false;
 
-</body>
+        // Setup media recorder
+        _chunks = [];
+        var options = {
+          audioBitsPerSecond: 128000,
+          videoBitsPerSecond: 2500000, // TODO: allow setting this from UI
+          mimeType: "video/webm; codecs=vp9,opus",
+        };
+        _mediaRecorder = new MediaRecorder(_mediaStream, options);
+        _mediaRecorder.ondataavailable = _onDataAvailable;
+        _mediaRecorder.start(1000);
+      }
+
+      function onStop() {
+        // toggle button states
+        document.getElementById("start-button").disabled = false;
+        document.getElementById("stop-button").disabled = true;
+        document.getElementById("download-button").disabled = false;
+      }
+
+      function onDownload() {
+        const blob = new Blob(_chunks, {
+          type: "video/webm",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        if (document.body) {
+          document.body.appendChild(a);
+          a.style.cssText = "display: none";
+          a.href = url;
+          a.download = "output.webm";
+          a.click();
+          window.URL.revokeObjectURL(url);
+        }
+      }
+
+      function _onDataAvailable(event) {
+        _chunks.push(event.data);
+      }
+    </script>
+  </body>
 </html>
