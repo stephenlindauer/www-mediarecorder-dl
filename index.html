@@ -1,0 +1,24 @@
+<html>
+
+<body>
+    <h1>MediaRecorder downloader</h1>
+
+    <video id='preview' muted autoplay="autoplay"></video>
+
+    <script>
+
+        navigator.mediaDevices.getUserMedia({
+            video:{
+                frameRate: 30,
+                width: 1280,
+                height: 720
+            },
+            audio: true
+        }).then(mediaStream => {
+         document.getElementById('preview').srcObject = mediaStream;
+        });
+
+    </script>
+
+</body>
+</html>
