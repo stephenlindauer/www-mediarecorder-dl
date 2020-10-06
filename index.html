@@ -109,6 +109,8 @@
         document.getElementById("start-button").disabled = false;
         document.getElementById("stop-button").disabled = true;
         document.getElementById("download-button").disabled = false;
+
+        _mediaRecorder.stop();
       }
 
       function onDownload() {
@@ -151,9 +153,9 @@
               return num;
           }
           if (num < 1_000_000) {
-              return parseInt(num/100)/10 + "KB";
+              return parseInt(num/100)/10 + " KB";
           }
-          return parseInt(num/10_000)/10 + "MB";
+          return parseInt(num/10_000)/10 + " MB";
       }
     </script>
   </body>
