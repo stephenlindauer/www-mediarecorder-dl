@@ -27,6 +27,8 @@
       var _mediaStream;
       var _mediaRecorder;
       var _chunks = [];
+      var _audioDevice;
+      var _videoDevice;
 
       // populate device picker
       navigator.mediaDevices.enumerateDevices().then(function (devices) {
@@ -38,29 +40,42 @@
           option.value = device.deviceId;
           if (device.kind == "videoinput") {
             videoDevices.add(option);
+            // grab first video device and save it for later
+            if (_videoDevice == null) {
+              _videoDevice = device.deviceId;
+            }
           } else if (device.kind == "audioinput") {
             audioDevices.add(option);
+            // grab first audio device and save it for later
+            if (_audioDevice == null) {
+              _audioDevice = device.deviceId;
+            }
           }
         });
+      });
 
-        // grab camera/mic on page load
+      function onUpdateMediaStream() {
+        _videoDevice = document.getElementById('video-device').value;
+        _audioDevice = document.getElementById('audio-device').value;
         navigator.mediaDevices
           .getUserMedia({
             video: {
+              deviceId: { exact: _videoDevice },
               frameRate: 30,
               width: 1280,
               height: 720,
             },
-            audio: true,
+            audio: {
+              deviceId: { exact: _audioDevice },
+              echoCancellation: false,
+              autoGainControl: false,
+              noiseSuppression: false,
+            },
           })
           .then((mediaStream) => {
             document.getElementById("preview").srcObject = mediaStream;
             _mediaStream = mediaStream;
           });
-      });
-
-      function onUpdateMediaStream() {
-        //
       }
 
       function onStart() {
