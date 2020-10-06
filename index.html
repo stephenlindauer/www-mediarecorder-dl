@@ -21,6 +21,10 @@
         Download
       </button>
     </div>
+    <div class="row">
+        <div>Duration: <span id='duration'></span></div>
+        <div>Bytes: <span id='bytes'></span></div>
+    </div>
     <video id="preview" muted autoplay="autoplay"></video>
 
     <script>
@@ -29,6 +33,8 @@
       var _chunks = [];
       var _audioDevice;
       var _videoDevice;
+      var _startTime;
+      var _bytesAdded;
 
       // populate device picker
       navigator.mediaDevices.enumerateDevices().then(function (devices) {
@@ -93,6 +99,9 @@
         _mediaRecorder = new MediaRecorder(_mediaStream, options);
         _mediaRecorder.ondataavailable = _onDataAvailable;
         _mediaRecorder.start(1000);
+
+        _startTime = Date.now();
+        _bytesAdded = 0;
       }
 
       function onStop() {
@@ -120,6 +129,10 @@
 
       function _onDataAvailable(event) {
         _chunks.push(event.data);
+        console.log(event.data)
+
+        // _bytesAdded += event.data.byteLength
+        document.getElementById('duration').innerHTML = parseInt((Date.now() - _startTime) / 1000) + "s";
       }
     </script>
   </body>
