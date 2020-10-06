@@ -129,11 +129,31 @@
 
       function _onDataAvailable(event) {
         _chunks.push(event.data);
-        console.log(event.data)
 
         _bytesAdded += event.data.size;
-        document.getElementById('bytes').innerHTML = _bytesAdded;
-        document.getElementById('duration').innerHTML = parseInt((Date.now() - _startTime) / 1000) + "s";
+        document.getElementById('bytes').innerHTML = formatBytes(_bytesAdded);
+        document.getElementById('duration').innerHTML = formatDuration();
+      }
+
+      function formatDuration() {
+        const seconds = (Date.now() - _startTime) / 1000;
+        if (seconds < 60) {
+            return seconds + " s";
+        }
+        if (seconds < 60*60) {
+            return seconds/60 + " m";
+        }
+        return seconds/60/60 + " h";
+      }
+
+      function formatBytes(num) {
+          if (num < 1000) {
+              return num;
+          }
+          if (num < 1_000_000) {
+              return parseInt(num/100)/10 + "KB";
+          }
+          return parseInt(num/10_000)/10 + "MB";
       }
     </script>
   </body>
