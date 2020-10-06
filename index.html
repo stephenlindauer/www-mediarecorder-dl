@@ -131,7 +131,8 @@
         _chunks.push(event.data);
         console.log(event.data)
 
-        // _bytesAdded += event.data.byteLength
+        _bytesAdded += event.data.size;
+        document.getElementById('bytes').innerHTML = _bytesAdded;
         document.getElementById('duration').innerHTML = parseInt((Date.now() - _startTime) / 1000) + "s";
       }
     </script>
