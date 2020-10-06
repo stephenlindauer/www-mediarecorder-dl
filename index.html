@@ -9,6 +9,8 @@
   <body>
     <h1>MediaRecorder downloader</h1>
     <div class="row">
+      <select id="video-device" onchange="onUpdateMediaStream()"></select>
+      <select id="audio-device" onchange="onUpdateMediaStream()"></select>
       Audio/Video picker here
     </div>
     <div class="row">
@@ -27,20 +29,40 @@
       var _mediaRecorder;
       var _chunks = [];
 
-      // grab camera/mic on page load
-      navigator.mediaDevices
-        .getUserMedia({
-          video: {
-            frameRate: 30,
-            width: 1280,
-            height: 720,
-          },
-          audio: true,
-        })
-        .then((mediaStream) => {
-          document.getElementById("preview").srcObject = mediaStream;
-          _mediaStream = mediaStream;
+      // populate device picker
+      navigator.mediaDevices.enumerateDevices().then(function (devices) {
+        var videoDevices = document.getElementById("video-device");
+        var audioDevices = document.getElementById("audio-device");
+        devices.forEach(function (device) {
+          var option = document.createElement("option");
+          option.text = device.label;
+          option.value = device.deviceId;
+          if (device.kind == "videoinput") {
+            videoDevices.add(option);
+          } else if (device.kind == "audioinput") {
+            audioDevices.add(option);
+          }
         });
+
+        // grab camera/mic on page load
+        navigator.mediaDevices
+          .getUserMedia({
+            video: {
+              frameRate: 30,
+              width: 1280,
+              height: 720,
+            },
+            audio: true,
+          })
+          .then((mediaStream) => {
+            document.getElementById("preview").srcObject = mediaStream;
+            _mediaStream = mediaStream;
+          });
+      });
+
+      function onUpdateMediaStream() {
+        //
+      }
 
       function onStart() {
         // toggle button states
