@@ -4,6 +4,13 @@
       .row {
         margin: 10px 0;
       }
+      #stats {
+        position: absolute;
+        left: 10px;
+        color: white;
+        font-size: 20px;
+        filter: drop-shadow(0px 0px 2px #000);
+      }
     </style>
   </head>
   <body>
@@ -21,9 +28,10 @@
         Download
       </button>
     </div>
-    <div class="row">
-        <div>Duration: <span id='duration'></span></div>
-        <div>Bytes: <span id='bytes'></span></div>
+    <div class="row" id="stats">
+      <div>Duration: <span id="duration"></span></div>
+      <div>Bytes recorded: <span id="bytes"></span></div>
+      <div>Framerate: <span id="framerate"></span></div>
     </div>
     <video id="preview" muted autoplay="autoplay"></video>
 
@@ -35,6 +43,13 @@
       var _videoDevice;
       var _startTime;
       var _bytesAdded;
+      var _unparsedData = new Uint8Array([]);
+      var _videoTrackNumber;
+      var _parsedInitSegment = false;
+
+      const CLUSTER_ID = 0x1f43b675;
+      const SIMPLE_BLOCK_ID = 0xa3;
+      const TIMECODE_ID = 0xe7;
 
       // populate device picker
       navigator.mediaDevices.enumerateDevices().then(function (devices) {
@@ -58,11 +73,12 @@
             }
           }
         });
+        onUpdateMediaStream();
       });
 
       function onUpdateMediaStream() {
-        _videoDevice = document.getElementById('video-device').value;
-        _audioDevice = document.getElementById('audio-device').value;
+        _videoDevice = document.getElementById("video-device").value;
+        _audioDevice = document.getElementById("audio-device").value;
         navigator.mediaDevices
           .getUserMedia({
             video: {
@@ -133,30 +149,154 @@
         _chunks.push(event.data);
 
         _bytesAdded += event.data.size;
-        document.getElementById('bytes').innerHTML = formatBytes(_bytesAdded);
-        document.getElementById('duration').innerHTML = formatDuration();
+        document.getElementById("bytes").innerHTML = formatBytes(_bytesAdded);
+        document.getElementById("duration").innerHTML = formatDuration();
+
+        const fileReader = new FileReader();
+        fileReader.onload = _fileReaderOnLoad;
+        fileReader.readAsArrayBuffer(event.data);
+      }
+
+      function _fileReaderOnLoad(event) {
+        if (event.target.error != null) {
+          log("FileReader encountered error: " + error.message);
+          return;
+        }
+
+        // may the code gods have mercy on my soul for what follows...
+        // Notes:
+        // - On first chunk of data, parse init segment to determine track number for video track
+        // - No need to keep track of old data. Just find how many frames are in each chunk and keep track of time since last chunk was parsed to determine T. (should be ~1s)
+        const arrayBuffer = event.target.result;
+
+        // parse init segment so we can know the video track number for later
+        if (!_parsedInitSegment) {
+          _unparsedData = parseInitSegment(new DataView(arrayBuffer));
+          // we'll attempt to parse the first cluster on the next onDataAvailable
+          return;
+        }
+
+        // Add new data to the previously stored data
+        _unparsedData = combineArrayBuffers([
+          _unparsedData,
+          new Uint8Array(arrayBuffer),
+        ]);
+
+        const dataView = new DataView(_unparsedData.buffer);
+
+        parser = new shaka.util.EbmlParser(dataView);
+        clusterElement = parser.parseElement();
+        parseCluster(clusterElement);
+      }
+
+      function _parseFullCluster(cluster) {
+        console.log(cluster.byteLength);
+        _unparsedData = new Uint8Array([]);
+      }
+
+      function combineArrayBuffers(buffers) {
+        let size = 0;
+        buffers.forEach(function (buffer) {
+          size += buffer.byteLength;
+        });
+        const buff = new Uint8Array(size);
+        let pos = 0;
+        buffers.forEach(function (buffer) {
+          buff.set(buffer, pos);
+          pos += buffer.byteLength;
+        });
+        return buff;
+      }
+
+      // Borrowed from Shaka ebml parser
+      // http://v1-6-2.shaka-player-demo.appspot.com/docs/util_ebml_parser.js.html
+      function parseVint(dv, idx) {
+        const firstByte = dv.getUint8(idx);
+        let numBytes;
+
+        // Determine the byte width of the variable sized integer.
+        for (numBytes = 1; numBytes <= 8; numBytes++) {
+          const mask = 0x1 << (8 - numBytes);
+          if (firstByte & mask) {
+            break;
+          }
+        }
+
+        if (numBytes > 8) {
+          throw new RangeError(
+            "EbmlParser: Variable sized integer must fit within 8 bytes. Got " +
+              numBytes
+          );
+        }
+
+        const vint = new Uint8Array(numBytes);
+        vint[0] = firstByte;
+
+        // Include the remaining bytes.
+        for (let i = 1; i < numBytes; i++) {
+          vint[i] = dv.getUint8(idx + i);
+        }
+
+        return vint;
+      }
+
+      // Borrowed from Shaka ebml parser
+      // http://v1-6-2.shaka-player-demo.appspot.com/docs/util_ebml_parser.js.html
+      function getVintValue(vint) {
+        // If |vint| is 8 bytes wide then we must ensure that it does not have more
+        // than 53 meaningful bits. For example, assume |vint| is 8 bytes wide,
+        // so it has the following structure,
+        // 0000 0001 | xxxx xxxx ...
+        // Thus, the the first 3 bits following the first byte of |vint| must be 0.
+        if (vint.length == 8 && vint[1] & 0xe0) {
+          throw new RangeError(
+            "EbmlParser: Variable sized integer value must be at most 53 bits."
+          );
+        }
+
+        // Mask out the first few bits of |vint|'s first byte to get the most
+        // significant bits of |vint|'s value. If |vint| is 8 bytes wide then |value|
+        // will be set to 0.
+        const mask = 0x1 << (8 - vint.length);
+        let value = vint[0] & (mask - 1);
+
+        // Add the remaining bytes.
+        for (let i = 1; i < vint.length; i++) {
+          // Note that we cannot use << since |value| may exceed 32 bits.
+          value = 256 * value + vint[i];
+        }
+
+        return value;
       }
 
       function formatDuration() {
         const seconds = (Date.now() - _startTime) / 1000;
         if (seconds < 60) {
-            return seconds + " s";
+          return seconds + " s";
         }
-        if (seconds < 60*60) {
-            return seconds/60 + " m";
+        if (seconds < 60 * 60) {
+          return seconds / 60 + " m";
         }
-        return seconds/60/60 + " h";
+        return seconds / 60 / 60 + " h";
       }
 
       function formatBytes(num) {
-          if (num < 1000) {
-              return num;
-          }
-          if (num < 1_000_000) {
-              return parseInt(num/100)/10 + " KB";
-          }
-          return parseInt(num/10_000)/10 + " MB";
+        if (num < 1000) {
+          return num;
+        }
+        if (num < 1_000_000) {
+          return parseInt(num / 100) / 10 + " KB";
+        }
+        return parseInt(num / 10_000) / 10 + " MB";
       }
+
+      shaka = {};
+      shaka.util = {};
     </script>
+
+    <script src="parsing.js"></script>
+    <script src="shaka-dataviewreader.js"></script>
+    <script src="shaka-uint8arrayutils.js"></script>
+    <script src="shaka-ebmlparser.js"></script>
   </body>
 </html>
