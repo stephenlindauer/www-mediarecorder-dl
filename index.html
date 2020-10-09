@@ -22,6 +22,9 @@
       <select id="audio-device" onchange="onUpdateMediaStream()"></select>
     </div>
     <div class="row">
+      <input type="text" id="media-type" value="video/webm; codecs=vp9,opus" />
+    </div>
+    <div class="row">
       <button id="start-button" onclick="onStart()">Start Recording</button>
       <button id="stop-button" onclick="onStop()" disabled>
         Stop Recording
@@ -109,10 +112,11 @@
 
         // Setup media recorder
         _chunks = [];
+        var mediaType = document.getElementById('media-type').value;
         var options = {
           audioBitsPerSecond: 128000,
           videoBitsPerSecond: 2500000, // TODO: allow setting this from UI
-          mimeType: "video/webm; codecs=vp9,opus",
+          mimeType: mediaType,
         };
         _mediaRecorder = new MediaRecorder(_mediaStream, options);
         _mediaRecorder.ondataavailable = _onDataAvailable;
