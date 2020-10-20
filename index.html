@@ -22,13 +22,13 @@
       <select id="audio-device" onchange="onUpdateMediaStream()"></select>
     </div>
     <div class="row">
-      <input type="text" id="media-type" value="video/webm; codecs=vp9,opus" />
+      Media Type: <input type="text" id="media-type" value="video/webm; codecs=vp9,opus" />
     </div>
     <div class="row">
-      <input type="text" id="audio-bitrate" value="32000" />
+      Audio Bps: <input type="text" id="audio-bitrate" value="32000" />
     </div>
     <div class="row">
-      <input type="text" id="video-bitrate" value="2500000" />
+      Video Bps: <input type="text" id="video-bitrate" value="2500000" />
     </div>
     <div class="row">
       <button id="start-button" onclick="onStart()">Start Recording</button>
@@ -62,30 +62,33 @@
       const SIMPLE_BLOCK_ID = 0xa3;
       const TIMECODE_ID = 0xe7;
 
-      // populate device picker
-      navigator.mediaDevices.enumerateDevices().then(function (devices) {
-        var videoDevices = document.getElementById("video-device");
-        var audioDevices = document.getElementById("audio-device");
-        devices.forEach(function (device) {
-          var option = document.createElement("option");
-          option.text = device.label;
-          option.value = device.deviceId;
-          if (device.kind == "videoinput") {
-            videoDevices.add(option);
-            // grab first video device and save it for later
-            if (_videoDevice == null) {
-              _videoDevice = device.deviceId;
+      // request permissions first
+      navigator.mediaDevices.getUserMedia({audio: true, video:true}).then(function () {
+        // populate device picker
+        navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            var videoDevices = document.getElementById("video-device");
+            var audioDevices = document.getElementById("audio-device");
+            devices.forEach(function (device) {
+            var option = document.createElement("option");
+            option.text = device.label;
+            option.value = device.deviceId;
+            if (device.kind == "videoinput") {
+                videoDevices.add(option);
+                // grab first video device and save it for later
+                if (_videoDevice == null) {
+                _videoDevice = device.deviceId;
+                }
+            } else if (device.kind == "audioinput") {
+                audioDevices.add(option);
+                // grab first audio device and save it for later
+                if (_audioDevice == null) {
+                _audioDevice = device.deviceId;
+                }
             }
-          } else if (device.kind == "audioinput") {
-            audioDevices.add(option);
-            // grab first audio device and save it for later
-            if (_audioDevice == null) {
-              _audioDevice = device.deviceId;
-            }
-          }
-        });
-        onUpdateMediaStream();
-      });
+            });
+            onUpdateMediaStream();
+        })
+    });
 
       function onUpdateMediaStream() {
         _videoDevice = document.getElementById("video-device").value;
