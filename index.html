@@ -141,6 +141,10 @@
           mimeType: mediaType,
         };
         console.log("Starting MediaRecorder with options: " + JSON.stringify(options));
+        console.log(
+            "Video track settings: " + 
+            JSON.stringify(_mediaStream.getVideoTracks()[0].getSettings())
+        );
         _mediaRecorder = new MediaRecorder(_mediaStream, options);
         _mediaRecorder.ondataavailable = _onDataAvailable;
         _mediaRecorder.start(1000);
