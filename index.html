@@ -29,6 +29,9 @@
       <select id="audio-device" onchange="onUpdateMediaStream()"></select>
     </div>
     <div class="row">
+      <span class='label'>Video Height:</span> <input class='input' type="text" id="video-height" value="720" onchange="onUpdateMediaStream()" />
+    </div>
+    <div class="row">
       <span class='label'>Media Type:</span> <input class='input' type="text" id="media-type" value="video/webm; codecs=vp9,opus" />
     </div>
     <div class="row">
@@ -100,13 +103,14 @@
       function onUpdateMediaStream() {
         _videoDevice = document.getElementById("video-device").value;
         _audioDevice = document.getElementById("audio-device").value;
+        videoHeight = parseInt(document.getElementById("video-height").value);
         navigator.mediaDevices
           .getUserMedia({
             video: {
               deviceId: { exact: _videoDevice },
               frameRate: 30,
-              width: 1280,
-              height: 720,
+              width: videoHeight*16/9,
+              height: videoHeight,
             },
             audio: {
               deviceId: { exact: _audioDevice },
@@ -129,8 +133,8 @@
         // Setup media recorder
         _chunks = [];
         var mediaType = document.getElementById('media-type').value;
-        var audioBps = parseInt(document.getElementById('media-type').value);
-        var videoBps = parseInt(document.getElementById('media-type').value);
+        var audioBps = parseInt(document.getElementById('audio-bitrate').value);
+        var videoBps = parseInt(document.getElementById('video-bitrate').value);
         var options = {
           audioBitsPerSecond: audioBps,
           videoBitsPerSecond: videoBps,
