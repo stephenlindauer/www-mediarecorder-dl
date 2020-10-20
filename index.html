@@ -122,8 +122,8 @@
         // Setup media recorder
         _chunks = [];
         var mediaType = document.getElementById('media-type').value;
-        var audioBps = document.getElementById('media-type').value;
-        var videoBps = document.getElementById('media-type').value;
+        var audioBps = parseInt(document.getElementById('media-type').value);
+        var videoBps = parseInt(document.getElementById('media-type').value);
         var options = {
           audioBitsPerSecond: audioBps,
           videoBitsPerSecond: videoBps,
