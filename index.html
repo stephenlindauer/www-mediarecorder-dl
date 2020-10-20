@@ -4,6 +4,13 @@
       .row {
         margin: 10px 0;
       }
+      .row .label {
+          display:inline-block;
+          width:200px;
+      }
+      .row .input {
+        width: 300px;
+      }
       #stats {
         position: absolute;
         left: 20px;
@@ -22,13 +29,13 @@
       <select id="audio-device" onchange="onUpdateMediaStream()"></select>
     </div>
     <div class="row">
-      Media Type: <input type="text" id="media-type" value="video/webm; codecs=vp9,opus" />
+      <span class='label'>Media Type:</span> <input class='input' type="text" id="media-type" value="video/webm; codecs=vp9,opus" />
     </div>
     <div class="row">
-      Audio Bps: <input type="text" id="audio-bitrate" value="32000" />
+        <span class='label'>Audio Bps:</span> <input class='input' type="text" id="audio-bitrate" value="32000" />
     </div>
     <div class="row">
-      Video Bps: <input type="text" id="video-bitrate" value="2500000" />
+        <span class='label'>Video Bps:</span> <input class='input' type="text" id="video-bitrate" value="2500000" />
     </div>
     <div class="row">
       <button id="start-button" onclick="onStart()">Start Recording</button>
