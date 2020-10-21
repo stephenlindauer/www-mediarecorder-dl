@@ -163,6 +163,9 @@
       }
 
       function onDownload() {
+        const codec = document.getElementById('media-type').value.split("codecs=")[1];
+        const videoKbps = parseInt(document.getElementById('video-bitrate').value)/1000;
+        const videoHeight = document.getElementById('video-height').value;
         const blob = new Blob(_chunks, {
           type: "video/webm",
         });
@@ -172,7 +175,7 @@
           document.body.appendChild(a);
           a.style.cssText = "display: none";
           a.href = url;
-          a.download = "output.webm";
+          a.download = `output-${codec}-${videoKbps}kbps-${videoHeight}p.webm`;
           a.click();
           window.URL.revokeObjectURL(url);
         }
