@@ -90,7 +90,14 @@
       // request permissions first
       navigator.mediaDevices
         .getUserMedia({ audio: true, video: true })
-        .then(function () {
+        .then(function (stream) {
+          // Release all tracks so we can resize later.
+          if (stream) {
+            stream.getTracks().forEach(track => {
+              track.stop();
+            });
+          }
+  
           // populate device picker
           navigator.mediaDevices.enumerateDevices().then(function (devices) {
             var videoDevices = document.getElementById("video-device");
@@ -139,6 +146,10 @@
           .then((mediaStream) => {
             document.getElementById("preview").srcObject = mediaStream;
             _mediaStream = mediaStream;
+
+            console.log(
+            "Updated video track settings: " + 
+            JSON.stringify(_mediaStream.getVideoTracks()[0].getSettings()));
           });
       }
 
