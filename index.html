@@ -5,8 +5,8 @@
         margin: 10px 0;
       }
       .row .label {
-          display:inline-block;
-          width:100px;
+        display: inline-block;
+        width: 100px;
       }
       .row .input {
         width: 300px;
@@ -17,8 +17,8 @@
         color: white;
         font-size: 20px;
         filter: drop-shadow(0px 0px 2px #000);
-        background-color: rgba(0,0,0,0.5);
-        padding:5px;
+        background-color: rgba(0, 0, 0, 0.5);
+        padding: 5px;
       }
     </style>
   </head>
@@ -29,16 +29,31 @@
       <select id="audio-device" onchange="onUpdateMediaStream()"></select>
     </div>
     <div class="row">
-      <span class='label'>Video Height:</span> <input class='input' type="text" id="video-height" value="720" onchange="onUpdateMediaStream()" />
+      <span class="label">Video Height:</span>
+      <input
+        class="input"
+        type="text"
+        id="video-height"
+        value="720"
+        onchange="onUpdateMediaStream()"
+      />
     </div>
     <div class="row">
-      <span class='label'>Media Type:</span> <input class='input' type="text" id="media-type" value="video/webm; codecs=vp9,opus" />
+      <span class="label">Media Type:</span>
+      <input
+        class="input"
+        type="text"
+        id="media-type"
+        value="video/webm; codecs=vp9,opus"
+      />
     </div>
     <div class="row">
-        <span class='label'>Audio Bps:</span> <input class='input' type="text" id="audio-bitrate" value="32000" />
+      <span class="label">Audio Bps:</span>
+      <input class="input" type="text" id="audio-bitrate" value="32000" />
     </div>
     <div class="row">
-        <span class='label'>Video Bps:</span> <input class='input' type="text" id="video-bitrate" value="2500000" />
+      <span class="label">Video Bps:</span>
+      <input class="input" type="text" id="video-bitrate" value="2500000" />
     </div>
     <div class="row">
       <button id="start-button" onclick="onStart()">Start Recording</button>
@@ -73,39 +88,41 @@
       const TIMECODE_ID = 0xe7;
 
       // request permissions first
-      navigator.mediaDevices.getUserMedia({audio: true, video:true}).then(function (stream) {
-        // release all tracks so we can resize later.
-        if (stream) {
-          stream.getTracks().forEach(track => {
-            track.stop();
-          });
-        }
-
-        // populate device picker
-        navigator.mediaDevices.enumerateDevices().then(function (devices) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true, video: true })
+        .then(function (stream) {
+          // Release all tracks so we can resize later.
+          if (stream) {
+            stream.getTracks().forEach(track => {
+              track.stop();
+            });
+          }
+  
+          // populate device picker
+          navigator.mediaDevices.enumerateDevices().then(function (devices) {
             var videoDevices = document.getElementById("video-device");
             var audioDevices = document.getElementById("audio-device");
             devices.forEach(function (device) {
-            var option = document.createElement("option");
-            option.text = device.label;
-            option.value = device.deviceId;
-            if (device.kind == "videoinput") {
+              var option = document.createElement("option");
+              option.text = device.label;
+              option.value = device.deviceId;
+              if (device.kind == "videoinput") {
                 videoDevices.add(option);
                 // grab first video device and save it for later
                 if (_videoDevice == null) {
-                _videoDevice = device.deviceId;
+                  _videoDevice = device.deviceId;
                 }
-            } else if (device.kind == "audioinput") {
+              } else if (device.kind == "audioinput") {
                 audioDevices.add(option);
                 // grab first audio device and save it for later
                 if (_audioDevice == null) {
-                _audioDevice = device.deviceId;
+                  _audioDevice = device.deviceId;
                 }
-            }
+              }
             });
             onUpdateMediaStream();
-        })
-    });
+          });
+        });
 
       function onUpdateMediaStream() {
         _videoDevice = document.getElementById("video-device").value;
@@ -114,13 +131,13 @@
         navigator.mediaDevices
           .getUserMedia({
             video: {
-              deviceId: { exact: _videoDevice },
-              frameRate: 30,
-              width: videoHeight*16/9,
+              //   deviceId: { exact: _videoDevice },
               height: videoHeight,
+              frameRate: 30,
+              width: (videoHeight * 16) / 9,
             },
             audio: {
-              deviceId: { exact: _audioDevice },
+              //   deviceId: { exact: _audioDevice },
               echoCancellation: false,
               autoGainControl: false,
               noiseSuppression: false,
@@ -143,17 +160,19 @@
 
         // Setup media recorder
         _chunks = [];
-        var mediaType = document.getElementById('media-type').value;
-        var audioBps = parseInt(document.getElementById('audio-bitrate').value);
-        var videoBps = parseInt(document.getElementById('video-bitrate').value);
+        var mediaType = document.getElementById("media-type").value;
+        var audioBps = parseInt(document.getElementById("audio-bitrate").value);
+        var videoBps = parseInt(document.getElementById("video-bitrate").value);
         var options = {
           audioBitsPerSecond: audioBps,
           videoBitsPerSecond: videoBps,
           mimeType: mediaType,
         };
-        console.log("Starting MediaRecorder with options: " + JSON.stringify(options));
         console.log(
-            "Video track settings: " + 
+          "Starting MediaRecorder with options: " + JSON.stringify(options)
+        );
+        console.log(
+          "Video track settings: " +
             JSON.stringify(_mediaStream.getVideoTracks()[0].getSettings())
         );
         _mediaRecorder = new MediaRecorder(_mediaStream, options);
@@ -174,6 +193,14 @@
       }
 
       function onDownload() {
+        const codec = document
+          .getElementById("media-type")
+          .value.split("codecs=")[1]
+          .replace(",", "");
+        const videoKbps =
+          parseInt(document.getElementById("video-bitrate").value) / 1000;
+        const videoHeight = document.getElementById("video-height").value;
+        console.log({ codec, videoKbps, videoHeight });
         const blob = new Blob(_chunks, {
           type: "video/webm",
         });
@@ -183,7 +210,7 @@
           document.body.appendChild(a);
           a.style.cssText = "display: none";
           a.href = url;
-          a.download = "output.webm";
+          a.download = `output-${codec}-${videoKbps}kbps-${videoHeight}p.webm`;
           a.click();
           window.URL.revokeObjectURL(url);
         }
@@ -319,9 +346,9 @@
           return seconds + " s";
         }
         if (seconds < 60 * 60) {
-          return parseInt(seconds / 60 * 100)/100 + " m";
+          return parseInt((seconds / 60) * 100) / 100 + " m";
         }
-        return parseInt(seconds / 60 / 60 * 100) / 100 + " h";
+        return parseInt((seconds / 60 / 60) * 100) / 100 + " h";
       }
 
       function formatBytes(num) {
