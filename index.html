@@ -124,13 +124,13 @@
         navigator.mediaDevices
           .getUserMedia({
             video: {
-              deviceId: { exact: _videoDevice },
+              //   deviceId: { exact: _videoDevice },
+              height: videoHeight,
               frameRate: 30,
               width: (videoHeight * 16) / 9,
-              height: videoHeight,
             },
             audio: {
-              deviceId: { exact: _audioDevice },
+              //   deviceId: { exact: _audioDevice },
               echoCancellation: false,
               autoGainControl: false,
               noiseSuppression: false,
