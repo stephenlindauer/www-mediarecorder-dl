@@ -39,6 +39,16 @@
       />
     </div>
     <div class="row">
+      <span class="label">Video Framerate:</span>
+      <input
+        class="input"
+        type="text"
+        id="video-framerate"
+        value="30"
+        onchange="onUpdateMediaStream()"
+      />
+    </div>
+    <div class="row">
       <span class="label">Media Type:</span>
       <input
         class="input"
@@ -128,16 +138,17 @@
         _videoDevice = document.getElementById("video-device").value;
         _audioDevice = document.getElementById("audio-device").value;
         videoHeight = parseInt(document.getElementById("video-height").value);
+        videoFramerate = parseInt(document.getElementById("video-framerate").value);
         navigator.mediaDevices
           .getUserMedia({
             video: {
-              //   deviceId: { exact: _videoDevice },
-              height: videoHeight,
-              frameRate: 30,
+              deviceId: { exact: _videoDevice },
+              height: { exact: videoHeight },
+              frameRate: { exact: videoFramerate },
               width: (videoHeight * 16) / 9,
             },
             audio: {
-              //   deviceId: { exact: _audioDevice },
+              deviceId: { exact: _audioDevice },
               echoCancellation: false,
               autoGainControl: false,
               noiseSuppression: false,
