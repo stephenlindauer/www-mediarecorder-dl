@@ -80,6 +80,10 @@
       <div>Framerate: <span id="framerate"></span></div>
     </div>
     <video id="preview" muted autoplay="autoplay"></video>
+    <div class="row">
+      <input type="checkbox" id="enable-playback" value='true'>
+      <label for="enable-playback">Enable encoded playback</label>
+    </div>
     <video id="playback" muted autoplay="autoplay"></video>
 
     <script>
@@ -172,13 +176,16 @@
         document.getElementById("stop-button").disabled = false;
 
         var mediaType = document.getElementById("media-type").value;
-        // setup playback 
-        const playbackMediaSource = new MediaSource();
-        playbackMediaSource.onsourceopen = () => {
-          _playbackBuffer = playbackMediaSource.addSourceBuffer(mediaType);
-        };
 
-        document.getElementById("playback").src = URL.createObjectURL(playbackMediaSource);
+        if (document.getElementById("enable-playback").checked) {
+          // setup playback 
+          const playbackMediaSource = new MediaSource();
+          playbackMediaSource.onsourceopen = () => {
+            _playbackBuffer = playbackMediaSource.addSourceBuffer(mediaType);
+          };
+
+          document.getElementById("playback").src = URL.createObjectURL(playbackMediaSource);
+        }
 
         // Setup media recorder
         _chunks = [];
