@@ -80,6 +80,7 @@
       <div>Framerate: <span id="framerate"></span></div>
     </div>
     <video id="preview" muted autoplay="autoplay"></video>
+    <video id="playback" muted autoplay="autoplay"></video>
 
     <script>
       var _mediaStream;
@@ -92,6 +93,7 @@
       var _unparsedData = new Uint8Array([]);
       var _videoTrackNumber;
       var _parsedInitSegment = false;
+      var _playbackBuffer;
 
       const CLUSTER_ID = 0x1f43b675;
       const SIMPLE_BLOCK_ID = 0xa3;
@@ -169,9 +171,17 @@
         document.getElementById("start-button").disabled = true;
         document.getElementById("stop-button").disabled = false;
 
+        var mediaType = document.getElementById("media-type").value;
+        // setup playback 
+        const playbackMediaSource = new MediaSource();
+        playbackMediaSource.onsourceopen = () => {
+          _playbackBuffer = playbackMediaSource.addSourceBuffer(mediaType);
+        };
+
+        document.getElementById("playback").src = URL.createObjectURL(playbackMediaSource);
+
         // Setup media recorder
         _chunks = [];
-        var mediaType = document.getElementById("media-type").value;
         var audioBps = parseInt(document.getElementById("audio-bitrate").value);
         var videoBps = parseInt(document.getElementById("video-bitrate").value);
         var options = {
@@ -250,6 +260,10 @@
         // - On first chunk of data, parse init segment to determine track number for video track
         // - No need to keep track of old data. Just find how many frames are in each chunk and keep track of time since last chunk was parsed to determine T. (should be ~1s)
         const arrayBuffer = event.target.result;
+
+        if (_playbackBuffer) {
+          _playbackBuffer.appendBuffer(arrayBuffer);
+        }
 
         // parse init segment so we can know the video track number for later
         if (!_parsedInitSegment) {
