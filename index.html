@@ -81,7 +81,7 @@
     </div>
     <video id="preview" muted autoplay="autoplay"></video>
     <div class="row">
-      <input type="checkbox" id="enable-playback" value='true'>
+      <input type="checkbox" id="enable-playback" >
       <label for="enable-playback">Enable encoded playback</label>
     </div>
     <video id="playback" muted autoplay="autoplay"></video>
@@ -181,10 +181,12 @@
           // setup playback 
           const playbackMediaSource = new MediaSource();
           playbackMediaSource.onsourceopen = () => {
-            _playbackBuffer = playbackMediaSource.addSourceBuffer(mediaType);
+            _playbackBuffer = playbackMediaSource.addSourceBuffer('video/webm; codecs=vp9,opus');
           };
 
           document.getElementById("playback").src = URL.createObjectURL(playbackMediaSource);
+        } else {
+          _playbackBuffer = null;
         }
 
         // Setup media recorder
@@ -192,8 +194,8 @@
         var audioBps = parseInt(document.getElementById("audio-bitrate").value);
         var videoBps = parseInt(document.getElementById("video-bitrate").value);
         var options = {
-          audioBitsPerSecond: audioBps,
-          videoBitsPerSecond: videoBps,
+           audioBitsPerSecond: audioBps,
+           videoBitsPerSecond: videoBps,
           mimeType: mediaType,
         };
         console.log(
@@ -268,7 +270,7 @@
         // - No need to keep track of old data. Just find how many frames are in each chunk and keep track of time since last chunk was parsed to determine T. (should be ~1s)
         const arrayBuffer = event.target.result;
 
-        if (_playbackBuffer) {
+        if (document.getElementById("enable-playback").checked && _playbackBuffer) {
           _playbackBuffer.appendBuffer(arrayBuffer);
         }
 
@@ -384,13 +386,20 @@
       }
 
       function formatBytes(num) {
+        result = "";
         if (num < 1000) {
-          return num;
+          result += num;
+        } else if (num < 1_000_000) {
+          result += parseInt(num / 100) / 10 + " KB";
+        } else {
+        result += parseInt(num / 10_000) / 10 + " MB";
         }
-        if (num < 1_000_000) {
-          return parseInt(num / 100) / 10 + " KB";
-        }
-        return parseInt(num / 10_000) / 10 + " MB";
+
+        kbps = num * 8 / (Date.now() - _startTime);
+        kbps = Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(kbps);
+        result += `(${kbps}kbps)`;
+
+        return result;
       }
 
       shaka = {};
