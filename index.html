@@ -21,17 +21,21 @@
         padding: 5px;
       }
     </style>
+    <script
+    src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs="
+    crossorigin="anonymous"></script>
   </head>
   <body>
     <h1>MediaRecorder downloader</h1>
     <div class="row">
-      <select id="video-device" onchange="onUpdateMediaStream()"></select>
-      <select id="audio-device" onchange="onUpdateMediaStream()"></select>
+      <select id="video-device" onchange="onUpdateMediaStream()" class="save_load"></select>
+      <select id="audio-device" onchange="onUpdateMediaStream()" class="save_load"></select>
     </div>
     <div class="row">
       <span class="label">Video Height:</span>
       <input
-        class="input"
+        class="input save_load"
         type="text"
         id="video-height"
         value="720"
@@ -41,7 +45,7 @@
     <div class="row">
       <span class="label">Video Framerate:</span>
       <input
-        class="input"
+        class="input save_load"
         type="text"
         id="video-framerate"
         value="30"
@@ -51,7 +55,7 @@
     <div class="row">
       <span class="label">Media Type:</span>
       <input
-        class="input"
+        class="input save_load"
         type="text"
         id="media-type"
         value="video/webm; codecs=vp9,opus"
@@ -59,11 +63,11 @@
     </div>
     <div class="row">
       <span class="label">Audio Bps:</span>
-      <input class="input" type="text" id="audio-bitrate" value="32000" />
+      <input class="input save_load" type="text" id="audio-bitrate" value="32000" />
     </div>
     <div class="row">
       <span class="label">Video Bps:</span>
-      <input class="input" type="text" id="video-bitrate" value="2500000" />
+      <input class="input save_load" type="text" id="video-bitrate" value="2500000" />
     </div>
     <div class="row">
       <button id="start-button" onclick="onStart()">Start Recording</button>
@@ -80,6 +84,11 @@
       <div>Framerate: <span id="framerate"></span></div>
     </div>
     <video id="preview" muted autoplay="autoplay"></video>
+    <div class="row">
+      <input type="checkbox" class='save_load' id="enable-playback" >
+      <label for="enable-playback">Enable encoded playback</label>
+    </div>
+    <video id="playback" muted autoplay="autoplay"></video>
 
     <script>
       var _mediaStream;
@@ -92,10 +101,53 @@
       var _unparsedData = new Uint8Array([]);
       var _videoTrackNumber;
       var _parsedInitSegment = false;
+      var _playbackBuffer;
 
       const CLUSTER_ID = 0x1f43b675;
       const SIMPLE_BLOCK_ID = 0xa3;
       const TIMECODE_ID = 0xe7;
+
+      $(".save_load").change((event) => {
+        save(event);
+      });
+
+      function save() {
+        $(".save_load").each(function(){
+          var id = $(this).attr('id');
+          if (id) {
+            localStorage.setItem(id, $(this).val());
+          }
+        });
+      }
+
+      function save(event) {
+          var id = event.target.id;
+          if (id) {
+            var value = event.target.value;
+            if (event.target.type == 'checkbox') {
+              value = event.target.checked;
+            }
+            localStorage.setItem(id, value);
+          }
+      }
+
+      function load() {
+        $(".save_load").each(function(){
+          var id = $(this).attr('id');
+          if (id) {
+            var val = localStorage.getItem(id);
+            if ($(this).attr('type') == 'checkbox') {
+              $(this).prop('checked', val === 'true');
+            } else if (val) {
+              $(this).val(val);
+            }
+          }
+        })
+      }
+
+      $(function() {
+        load();
+      });
 
       // request permissions first
       navigator.mediaDevices
@@ -169,14 +221,27 @@
         document.getElementById("start-button").disabled = true;
         document.getElementById("stop-button").disabled = false;
 
+        var mediaType = document.getElementById("media-type").value;
+
+        if (document.getElementById("enable-playback").checked) {
+          // setup playback 
+          const playbackMediaSource = new MediaSource();
+          playbackMediaSource.onsourceopen = () => {
+            _playbackBuffer = playbackMediaSource.addSourceBuffer('video/webm; codecs=vp9,opus');
+          };
+
+          document.getElementById("playback").src = URL.createObjectURL(playbackMediaSource);
+        } else {
+          _playbackBuffer = null;
+        }
+
         // Setup media recorder
         _chunks = [];
-        var mediaType = document.getElementById("media-type").value;
         var audioBps = parseInt(document.getElementById("audio-bitrate").value);
         var videoBps = parseInt(document.getElementById("video-bitrate").value);
         var options = {
-          audioBitsPerSecond: audioBps,
-          videoBitsPerSecond: videoBps,
+           audioBitsPerSecond: audioBps,
+           videoBitsPerSecond: videoBps,
           mimeType: mediaType,
         };
         console.log(
@@ -250,6 +315,10 @@
         // - On first chunk of data, parse init segment to determine track number for video track
         // - No need to keep track of old data. Just find how many frames are in each chunk and keep track of time since last chunk was parsed to determine T. (should be ~1s)
         const arrayBuffer = event.target.result;
+
+        if (document.getElementById("enable-playback").checked && _playbackBuffer) {
+          _playbackBuffer.appendBuffer(arrayBuffer);
+        }
 
         // parse init segment so we can know the video track number for later
         if (!_parsedInitSegment) {
@@ -363,13 +432,20 @@
       }
 
       function formatBytes(num) {
+        result = "";
         if (num < 1000) {
-          return num;
+          result += num;
+        } else if (num < 1_000_000) {
+          result += parseInt(num / 100) / 10 + " KB";
+        } else {
+        result += parseInt(num / 10_000) / 10 + " MB";
         }
-        if (num < 1_000_000) {
-          return parseInt(num / 100) / 10 + " KB";
-        }
-        return parseInt(num / 10_000) / 10 + " MB";
+
+        kbps = num * 8 / (Date.now() - _startTime);
+        kbps = Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(kbps);
+        result += `(${kbps}kbps)`;
+
+        return result;
       }
 
       shaka = {};
