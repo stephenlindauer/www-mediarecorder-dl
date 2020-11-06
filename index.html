@@ -98,10 +98,9 @@
       var _videoDevice;
       var _startTime;
       var _bytesAdded;
-      var _unparsedData = new Uint8Array([]);
       var _videoTrackNumber;
-      var _parsedInitSegment = false;
       var _playbackBuffer;
+      var _parseInfo = {};
 
       const CLUSTER_ID = 0x1f43b675;
       const SIMPLE_BLOCK_ID = 0xa3;
@@ -255,6 +254,11 @@
         _mediaRecorder.ondataavailable = _onDataAvailable;
         _mediaRecorder.start(1000);
 
+        _parseInfo = {
+          parsedInitSegment : false,
+          unparsedData : new Uint8Array([]),
+      };
+
         _startTime = Date.now();
         _bytesAdded = 0;
       }
@@ -321,23 +325,23 @@
         }
 
         // parse init segment so we can know the video track number for later
-        if (!_parsedInitSegment) {
-          _unparsedData = parseInitSegment(new DataView(arrayBuffer));
+        if (!_parseInfo.parsedInitSegment) {
+          _parseInfo.unparsedData = parseInitSegment(new DataView(arrayBuffer), _parseInfo);
           // we'll attempt to parse the first cluster on the next onDataAvailable
           return;
         }
 
         // Add new data to the previously stored data
-        _unparsedData = combineArrayBuffers([
-          _unparsedData,
+        _parseInfo.unparsedData = combineArrayBuffers([
+          _parseInfo.unparsedData,
           new Uint8Array(arrayBuffer),
         ]);
 
-        const dataView = new DataView(_unparsedData.buffer);
+        const dataView = new DataView(_parseInfo.unparsedData.buffer);
 
         parser = new shaka.util.EbmlParser(dataView);
         clusterElement = parser.parseElement();
-        parseCluster(clusterElement);
+        parseCluster(clusterElement, _parseInfo);
       }
 
       function _parseFullCluster(cluster) {

@@ -1,0 +1,278 @@
+<html>
+  <head>
+    <style>
+      .row {
+        margin: 10px 0;
+      }
+      .row .label {
+        display: inline-block;
+        width: 100px;
+      }
+      .row .input {
+        width: 300px;
+      }
+      #stats {
+        position: absolute;
+        left: 20px;
+        color: white;
+        font-size: 20px;
+        filter: drop-shadow(0px 0px 2px #000);
+        background-color: rgba(0, 0, 0, 0.5);
+        padding: 5px;
+      }
+    </style>
+    <script
+    src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+    integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs="
+    crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <h1>MediaRecorder perf</h1>
+    <div class="row">
+      <button id="start-button" onclick="runtests()">Start</button>
+    </div>
+    <div class="row" id='output' >
+      <ol ></ol>
+    </div>
+
+
+    <script>
+      var _audioDevices = [];
+      var _videoDevices = [];
+      var _currentRun;
+      var _mediaStream;
+      var _mediaRecorder;
+
+
+      const CLUSTER_ID = 0x1f43b675;
+      const SIMPLE_BLOCK_ID = 0xa3;
+      const TIMECODE_ID = 0xe7;
+
+      // request permissions first
+      navigator.mediaDevices
+        .getUserMedia({ audio: true, video: true })
+        .then(function (stream) {
+          // Release all tracks so we can resize later.
+          if (stream) {
+            stream.getTracks().forEach(track => {
+              track.stop();
+            });
+          }
+  
+          // populate device picker
+          navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            devices.forEach(function (device) {
+              if (device.kind == "videoinput") {
+                _videoDevices.push({
+                  id:device.deviceId,
+                  label: device.label,
+                });
+               
+              } else if (device.kind == "audioinput") {
+                _audioDevices.push({
+                  id:device.deviceId,
+                  label: device.label,
+                });
+              }
+            });
+          });
+        });
+
+      // test metrics
+      const kbps = 1024;
+      const mbps = 1024 * kbps;
+      var widths = [250,384,512,640,896,1024,1280];
+      //var widths = [384,512,640,896,1024,1280];
+      var aspects = [4/3, 16/9];
+      var frameRates = [10,15,30];
+      var audioBitrates = [30*kbps]
+      var videoBitrates = [35*kbps, 138*kbps, 311*kbps, 553*kbps, 864*kbps, 1.7*mbps, 2.2*mbps]
+
+      function print(text) {
+        var p = $("<p>").text(text);
+        $("#output").append(p);
+      }
+
+      async function runtests() {
+
+        for (const videoDevice of _videoDevices) {
+          print(`video device: ${videoDevice.label}`);
+          // for (const audioDevice of _audioDevices) {
+          //   print(`audio device: ${audioDevice.label}`);
+            for (const width of widths) {
+              for (const aspect of aspects) {
+                for (const frameRate of frameRates) {
+                  for (const audioBitrate of audioBitrates) {
+                    for (const videoBitrate of videoBitrates) {
+                      var input = {
+                        videoDevice:videoDevice.id,
+                        // audioDevice:audioDevice.id,
+                        width:width,
+                        aspect:aspect,
+                        frameRate:frameRate,
+                        audioBitrate:audioBitrate,
+                        videoBitrate:videoBitrate,
+                      }
+                      
+                      print(`input: width:${width}, height:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(width/aspect)} aspect:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(aspect)}, frameRate:${frameRate}, audioBitrate:${audioBitrate}, videoBitrate:${videoBitrate}`);
+                      try {
+                        await runtest(input);
+                        print(`result: width:${_currentRun.parseInfo.trackInfo.width},height:${_currentRun.parseInfo.trackInfo.height}, bitrate:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(_currentRun.bitrate)}, framerate:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(_currentRun.parseInfo.framerate)}`);
+                      } catch(e) {
+                        print(`Test failed: ${e.name}, ${e.message}`);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          // }
+        }
+      }
+
+      async function runtest(input) {
+
+        _currentRun = {
+            startTime : Date.now(),
+            bytesAdded:0,
+            duration:0,
+            dataAvaliableCallCount:0,
+            parseInfo : {
+              parsedInitSegment : false,
+              unparsedData : new Uint8Array([]),
+            },
+            
+            promise : new Promise((resolve, reject) => {
+              window.addEventListener('testdone', (event) => {
+                if (event.detail.succeed) {
+                  resolve()
+                } else {
+                  reject(event.detail.exception)
+                }
+              }, {once:true});
+            }),
+          } ;
+        
+        console.log("test start");
+        navigator.mediaDevices
+        .getUserMedia({
+          video: {
+            deviceId: { exact: input.videoDevice },
+            width: { exact: input.width },
+            frameRate: { exact: input.videoFramerate },
+            height: {exact:input.width / input.aspect},
+          },
+          audio: {
+            deviceId: { exact: input.audioDevice },
+            echoCancellation: false,
+            autoGainControl: false,
+            noiseSuppression: false,
+          },
+        })
+        .then(async (mediaStream) => {
+          var
+           options = {
+            audioBitsPerSecond: input.audioBitrate,
+            videoBitsPerSecond: input.vudioBitrate,
+            mimeType: "video/webm; codecs=vp9,opus",
+          };
+          _mediaStream = mediaStream;
+          
+          var trackSettings = mediaStream.getVideoTracks()[0].getSettings();
+          if (Math.round(trackSettings.aspectRatio * 10) !== Math.round(input.aspect*10) || trackSettings.width !== input.width) {
+            var msg = console.log("test failed on mediaStream track validation, setting: ", input, trackSettings);
+            throw({
+              name:"mediaStream track validation failed", 
+              message:""
+            });
+          }
+
+          _mediaRecorder = new MediaRecorder(mediaStream, options);
+
+          _mediaRecorder.ondataavailable = _onDataAvailable;
+          _mediaRecorder.start(1000);
+
+          setTimeout(() => {
+            _currentRun.duration = Date.now() - _currentRun.startTime;
+            if (_mediaRecorder) {
+              _mediaRecorder.ondataavailable = null;
+              _mediaRecorder.stop();
+            }
+            if (_mediaStream) {
+              _mediaStream.getTracks().forEach(track => {
+                track.stop();
+              });
+            }
+            window.dispatchEvent(new CustomEvent('testdone', {detail: {succeed:true}}));
+          }, 20000);
+
+        }).catch((e) => {
+          window.dispatchEvent(new CustomEvent('testdone',{detail:{succeed:false, exception:e}}));
+        });
+
+        return _currentRun.promise;
+      }
+
+      function _onDataAvailable(event) {
+        _currentRun.bytesAdded += event.data.size;
+        _currentRun.bitrate = _currentRun.bytesAdded * 8000 / (Date.now() - _currentRun.startTime);
+
+        _currentRun.dataAvaliableCallCount++;
+        
+        const fileReader = new FileReader();
+        fileReader.onload = _fileReaderOnLoad;
+        fileReader.readAsArrayBuffer(event.data);
+      }
+
+      function _fileReaderOnLoad(event) {
+        if (event.target.error != null) {
+          log("FileReader encountered error: " + error.message);
+          return;
+        }
+
+        const arrayBuffer = event.target.result;
+
+        // parse init segment so we can know the video track number for later
+        if (!_currentRun.parseInfo.parsedInitSegment) {
+          _currentRun.parseInfo.unparsedData = parseInitSegment(new DataView(arrayBuffer), _currentRun.parseInfo);
+          // we'll attempt to parse the first cluster on the next onDataAvailable
+          return;
+        }
+
+        // Add new data to the previously stored data
+        _currentRun.parseInfo.unparsedData = combineArrayBuffers([
+          _currentRun.parseInfo.unparsedData,
+          new Uint8Array(arrayBuffer),
+        ]);
+
+        const dataView = new DataView(_currentRun.parseInfo.unparsedData.buffer);
+
+        parser = new shaka.util.EbmlParser(dataView);
+        clusterElement = parser.parseElement();
+        parseCluster(clusterElement, _currentRun.parseInfo);
+      }
+
+      function combineArrayBuffers(buffers) {
+        let size = 0;
+        buffers.forEach(function (buffer) {
+          size += buffer.byteLength;
+        });
+        const buff = new Uint8Array(size);
+        let pos = 0;
+        buffers.forEach(function (buffer) {
+          buff.set(buffer, pos);
+          pos += buffer.byteLength;
+        });
+        return buff;
+      }
+
+      shaka = {};
+      shaka.util = {};
+    </script>
+
+    <script src="parsing.js"></script>
+    <script src="shaka-dataviewreader.js"></script>
+    <script src="shaka-uint8arrayutils.js"></script>
+    <script src="shaka-ebmlparser.js"></script>
+  </body>
+</html>
