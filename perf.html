@@ -81,8 +81,7 @@
       // test metrics
       const kbps = 1024;
       const mbps = 1024 * kbps;
-      var widths = [250,384,512,640,896,1024,1280];
-      //var widths = [384,512,640,896,1024,1280];
+      var widths = [250,320,384,512,640,896,1024,1280];
       var aspects = [4/3, 16/9];
       var frameRates = [10,15,30];
       var audioBitrates = [30*kbps]
@@ -173,7 +172,7 @@
           var
            options = {
             audioBitsPerSecond: input.audioBitrate,
-            videoBitsPerSecond: input.vudioBitrate,
+            videoBitsPerSecond: input.videoBitrate,
             mimeType: "video/webm; codecs=vp9,opus",
           };
           _mediaStream = mediaStream;
