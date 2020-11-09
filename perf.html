@@ -84,8 +84,9 @@
       var widths = [250,320,384,512,640,896,1024,1280];
       var aspects = [4/3, 16/9];
       var frameRates = [10,15,30];
-      var audioBitrates = [30*kbps]
-      var videoBitrates = [35*kbps, 138*kbps, 311*kbps, 553*kbps, 864*kbps, 1.7*mbps, 2.2*mbps]
+      var audioBitrates = [30*kbps];
+      var videoBitrates = [35*kbps, 138*kbps, 311*kbps, 553*kbps, 864*kbps, 1.7*mbps, 2.2*mbps];
+      var encodings =["vp9","h264"];
 
       function print(text) {
         var p = $("<p>").text(text);
@@ -94,10 +95,14 @@
 
       async function runtests() {
 
+        //csv format save
+        var save = [];
+        save.push('in width,in height,in aspect,in framerate,in audio br,in video br,encoding,out width,out height,out br,out framerate');
         for (const videoDevice of _videoDevices) {
           print(`video device: ${videoDevice.label}`);
           // for (const audioDevice of _audioDevices) {
           //   print(`audio device: ${audioDevice.label}`);
+          for (const encoding of encodings) {
             for (const width of widths) {
               for (const aspect of aspects) {
                 for (const frameRate of frameRates) {
@@ -111,12 +116,20 @@
                         frameRate:frameRate,
                         audioBitrate:audioBitrate,
                         videoBitrate:videoBitrate,
+                        encoding:encoding,
                       }
-                      
-                      print(`input: width:${width}, height:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(width/aspect)} aspect:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(aspect)}, frameRate:${frameRate}, audioBitrate:${audioBitrate}, videoBitrate:${videoBitrate}`);
+
+                      var inputHeight = Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(width/aspect);
+                      var inputAspect = Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(aspect);
+                      print(`input: width:${width}, height:${inputHeight} aspect:${inputAspect}, frameRate:${frameRate}, audioBitrate:${audioBitrate}, videoBitrate:${videoBitrate}, encoding:${encoding}`);
+                      var saveEntry = `${width},${inputHeight},${inputAspect},${frameRate},${audioBitrate},${videoBitrate},${encoding},`;
                       try {
                         await runtest(input);
-                        print(`result: width:${_currentRun.parseInfo.trackInfo.width},height:${_currentRun.parseInfo.trackInfo.height}, bitrate:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(_currentRun.bitrate)}, framerate:${Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(_currentRun.parseInfo.framerate)}`);
+                        var outBitrate = Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(_currentRun.bitrate);
+                        var outFramerate = Intl.NumberFormat('en-us', { maximumSignificantDigits: 3 }).format(_currentRun.parseInfo.framerate);
+                        print(`result: width:${_currentRun.parseInfo.trackInfo.width},height:${_currentRun.parseInfo.trackInfo.height}, bitrate:${outBitrate}, framerate:${outFramerate}`);
+                        saveEntry += `${_currentRun.parseInfo.trackInfo.width},${_currentRun.parseInfo.trackInfo.height},${_currentRun.bitrate},${outFramerate}`;
+                        save.push(saveEntry);
                       } catch(e) {
                         print(`Test failed: ${e.name}, ${e.message}`);
                       }
@@ -125,7 +138,21 @@
                 }
               }
             }
-          // }
+          }
+        }
+
+        const blob = new Blob([save.join("\n")], {
+          type: "text/plain",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        if (document.body) {
+          document.body.appendChild(a);
+          a.style.cssText = "display: none";
+          a.href = url;
+          a.download = `testsave.csv`;
+          a.click();
+          window.URL.revokeObjectURL(url);
         }
       }
 
@@ -173,7 +200,7 @@
            options = {
             audioBitsPerSecond: input.audioBitrate,
             videoBitsPerSecond: input.videoBitrate,
-            mimeType: "video/webm; codecs=vp9,opus",
+            mimeType: `video/webm; codecs=${input.encoding},opus`,
           };
           _mediaStream = mediaStream;
           
